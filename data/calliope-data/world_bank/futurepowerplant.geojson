@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+                                                                                
+"features": [
+{ "type": "Feature", "properties": { "Legend": "TPPs > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 73.233506386691104, 45.714103550398015 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 70.301578969998047, 41.876765573444693 ] } }
+]
+}

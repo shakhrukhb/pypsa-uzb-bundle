@@ -1,0 +1,14 @@
+link_name,bus0,bus1,link_type,num_500kv,num_220kv,num_parallel,nominal_capacity_MW,length_km,reactance_ohm,resistance_ohm
+central_east,central,east,domestic,2,7,9,5250,316.19,14.87,1.24
+central_northwest,central,northwest,domestic,0,2,2,700,579.75,130.44,11.59
+central_south,central,south,domestic,1,0,1,1400,235.88,82.56,5.9
+central_southwest,central,southwest,domestic,1,2,3,2100,199,27.25,2.21
+east_south,east,south,domestic,1,0,1,1400,814.3,285.01,20.36
+northwest_southwest,northwest,southwest,domestic,1,1,2,1750,618.04,121.68,9.51
+south_southwest,south,southwest,domestic,1,0,1,1400,307.08,107.48,7.68
+central_kazakhstan,central,kazakhstan,international,1,2,3,2100,50,6.85,0.56
+east_kyrgyzstan,east,kyrgyzstan,international,1,5,6,3150,75,5.37,0.45
+northwest_turkmenistan,northwest,turkmenistan,international,1,1,2,1750,60,11.81,0.92
+south_tajikistan,south,tajikistan,international,2,4,6,4200,140,9.59,0.78
+southwest_tajikistan,southwest,tajikistan,international,1,2,3,2100,45,6.16,0.5
+southwest_turkmenistan,southwest,turkmenistan,international,0,2,2,700,50,11.25,1

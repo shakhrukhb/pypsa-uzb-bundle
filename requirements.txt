@@ -1,0 +1,31 @@
+# PyPSA Uzbekistan project — runtime dependencies
+# Tested with Python 3.11 on macOS/Linux (HiGHS solver via highspy).
+#
+# Install with:   pip install -r requirements.txt --upgrade
+#
+# IMPORTANT: these versions are PINNED EXACTLY. pypsa 1.1.2 / linopy 0.6.4 are
+# sensitive to the xarray + pandas + numpy combination. Loose pins pull an
+# incompatible set and fail at n.optimize.create_model() with:
+#     TypeError: Passing a Dataset as data_vars to the Dataset constructor ...
+# Do NOT loosen these without re-running a full scenario end-to-end.
+
+# Core energy-system modeling
+pypsa==1.1.2
+linopy==0.6.4
+highspy==1.13.1
+
+# Numerics & data — version-sensitive, pin exactly (note: pandas 3.x is required)
+pandas==3.0.1
+numpy==2.4.2
+xarray==2026.2.0
+scipy==1.17.1
+netCDF4==1.7.3
+
+# Plotting
+matplotlib==3.10.8
+geopandas==1.1.2        # for the regional transmission map (plot_transmission_map.py)
+
+# I/O
+pyyaml==6.0.3
+openpyxl>=3.1           # only needed to read the .xlsx reference workbooks
+# contextily>=1.5        # optional: basemap tiles (not required by current scripts)

@@ -1,0 +1,33 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+                                                                                
+"features": [
+{ "type": "Feature", "properties": { "Legend": "TPPs < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 59.653944378922482, 42.670220916972987 ] } },
+{ "type": "Feature", "properties": { "Legend": "TPPs < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 65.290442192643795, 39.217797133891395 ] } },
+{ "type": "Feature", "properties": { "Legend": "TPPs < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 76.931539768020301, 43.342558928972167 ] } },
+{ "type": "Feature", "properties": { "Legend": "TPPs < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 77.302735084861354, 43.698883721606961 ] } },
+{ "type": "Feature", "properties": { "Legend": "TPPs < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 70.652152324792368, 41.585456439248865 ] } },
+{ "type": "Feature", "properties": { "Legend": "TPPs < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 65.661637509484848, 38.837507356061167 ] } },
+{ "type": "Feature", "properties": { "Legend": "TPPs < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 68.73430985444692, 38.367066005156737 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 65.320061483125158, 40.525823690348993 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 61.876193821322033, 37.626567589150604 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 70.24871041229251, 41.308518785306944 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 63.979633950088008, 45.818576601163862 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 69.155746423816055, 40.595623193194989 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 69.114502499722619, 41.654579422109634 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 71.589137945329654, 43.053187655725452 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 74.909273834852456, 42.942329186667514 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 69.536477373400501, 38.654928389371889 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 72.693781079768868, 41.822296663747053 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  > 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 77.232405157673497, 44.409843274007152 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 68.531699040037736, 37.779949365488768 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 67.736316653944101, 38.596906467971657 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 69.088492015299309, 38.252722763290862 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 67.902729197612615, 41.534882057922871 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 72.130231417191297, 41.482986098904384 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 72.305518094588464, 41.673148604654607 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 70.191766984799131, 40.588209089255649 ] } },
+{ "type": "Feature", "properties": { "Legend": "HPPs  < 1,000 MW" }, "geometry": { "type": "Point", "coordinates": [ 70.026791288425329, 41.845730512488437 ] } }
+]
+}
