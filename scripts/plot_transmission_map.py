@@ -25,8 +25,6 @@ from matplotlib.lines import Line2D
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
-sys.path.insert(0, SCRIPT_DIR)
-from berlin_scenarios_core import BUS_INFO, DOMESTIC_BUSES  # noqa: E402
 
 GEOJSON = os.path.join(PROJECT_DIR, "data", "pypsa-data", "gird-geojson", "uzbekistan_regional.geojson")
 ANALYSIS_DIR = os.path.join(PROJECT_DIR, "results", "policy_aligned", "analysis")
@@ -37,7 +35,8 @@ PROVINCE_ZONE = {
     "Tashkent city": "central", "Tashkent region": "central",
     "Syrdarya region": "central", "Jizzakh region": "central",
     "Namangan region": "east", "Andijan region": "east", "Fergana region": "east",
-    "Kashkadarya province": "south", "Surkhandarya region": "south", "Samarkand region": "south",
+    "Surkhandarya region": "south",
+    "Kashkadarya province": "southwest", "Samarkand region": "southwest",
     "Navoi region": "southwest", "Bukhara region": "southwest",
     "Khorezm region": "northwest", "Republic of Karakalpakstan": "northwest",
 }
@@ -47,7 +46,17 @@ ZONE_COLOR = {
 }
 ZONE_DISTRICT = {  # representative wind-profile district (for labels)
     "central": "Bekabad", "east": "Pop", "south": "Boysun",
-    "southwest": "Zarafshan/Tamdy", "northwest": "Kungrad",
+    "southwest": "Zarafshan", "northwest": "Kungrad",
+}
+# Node positions (lon, lat) = each zone's representative wind-profile district,
+# so every node sits inside its own colored region and corridors connect the
+# actual resource points (replaces the generic bus centroids).
+ZONE_NODE = {
+    "central":   (69.27, 40.22),   # Bekabad (Tashkent region)
+    "east":      (71.10, 40.87),   # Pop (Namangan)
+    "south":     (67.20, 38.20),   # Boysun (Surkhandarya)
+    "southwest": (64.50, 41.70),   # Zarafshan (Navoi)
+    "northwest": (58.80, 43.10),   # Kungrad (Karakalpakstan)
 }
 
 
@@ -93,12 +102,10 @@ def main():
         tx = pd.read_csv(tx_csv)
         for _, r in tx.iterrows():
             b0, b1 = r["bus0"], r["bus1"]
-            if b0 not in BUS_INFO or b1 not in BUS_INFO:
-                continue
-            if b0 not in DOMESTIC_BUSES or b1 not in DOMESTIC_BUSES:
-                continue  # focus on domestic corridors
-            x0, y0 = BUS_INFO[b0]["x"], BUS_INFO[b0]["y"]
-            x1, y1 = BUS_INFO[b1]["x"], BUS_INFO[b1]["y"]
+            if b0 not in ZONE_NODE or b1 not in ZONE_NODE:
+                continue  # skip international / non-domestic corridors
+            x0, y0 = ZONE_NODE[b0]
+            x1, y1 = ZONE_NODE[b1]
             new_mw = float(r.get("new_MW", 0) or 0)
             # existing corridor (grey base)
             ax.plot([x0, x1], [y0, y1], color="#555555", linewidth=1.3,
@@ -117,8 +124,8 @@ def main():
                 new_lines.append((b0, b1, new_mw, length))
 
     # --- zone nodes + labels ---
-    for b in DOMESTIC_BUSES:
-        x, y = BUS_INFO[b]["x"], BUS_INFO[b]["y"]
+    for b in ZONE_NODE:
+        x, y = ZONE_NODE[b]
         ax.scatter([x], [y], s=90, color="#222222", zorder=5, edgecolor="white")
         ax.annotate(f"{b.upper()}\n({ZONE_DISTRICT.get(b,'')})", (x, y),
                     textcoords="offset points", xytext=(6, 6), fontsize=9,

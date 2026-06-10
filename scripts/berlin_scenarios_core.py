@@ -84,6 +84,12 @@ AVAILABILITY = {"Gas": 0.95, "Coal": 0.85, "Oil": 0.90}
 MIN_STABLE_GEN = {"Gas": 0.50, "Coal": 0.0, "Oil": 0.30, "Hydro": 0.0, "Solar": 0.0, "Wind": 0.0}
 IMPORT_PRICES = {"kazakhstan": 45.0, "kyrgyzstan": 35.0, "tajikistan": 35.0, "turkmenistan": 40.0}
 
+# power_plants.xlsx fuel_type -> model carrier. "Gas/Coal" = Angren/Novo-Angren coal units.
+FUEL_TO_CARRIER = {"Gas": "Gas", "Gas/Coal": "Coal", "Hydro": "Hydro",
+                   "Solar": "Solar", "Wind": "Wind", "BESS": "BESS"}
+# build_year <= this = existing/current fleet; later = planned (gov-plan pipeline).
+EXISTING_BUILD_YEAR_MAX = 2025
+
 GOV_PLAN_ADDITIONS = {
     "central":   {"Solar": 1000, "Wind": 1000, "Gas": 2500, "BESS": 1000, "PumpedHydro": 500, "Hydro": 500},
     "east":      {"Solar": 1000, "Wind": 1000, "Gas": 1000, "BESS": 500,  "PumpedHydro": 500, "Hydro": 300},
@@ -95,8 +101,11 @@ GOV_PLAN_ADDITIONS = {
 LIFETIMES = {"Solar": 25, "Wind": 25, "Gas": 30, "BESS": 15, "PumpedHydro": 50, "Line": 40}
 CAPEX = {"Solar": 600, "Wind": 1100, "Gas": 900, "BESS_Power": 150, "BESS_Energy": 150, "PumpedHydro": 1500}
 
-# Transmission expansion CAPEX (NREL/EIA midrange for HVAC overhead) — USD per MW per km
-TRANSMISSION_CAPEX_PER_MW_KM = 1500.0
+# Transmission expansion CAPEX — USD per MW per km. Calibrated so a 220 kV,
+# 1000 A single circuit (√3 × 220 kV × 1000 A = 381 MW) costs ~$1.0M/km:
+#   $1,000,000 / 381 MW ≈ $2,625/MW/km  (high end of the realistic 220 kV range).
+# Tier-1 strategic corridors pay 1×; all other domestic lines pay 3×.
+TRANSMISSION_CAPEX_PER_MW_KM = 2625.0
 
 
 def annualize_cost(capex_per_kw: float, lifetime: int, discount_rate: float = DISCOUNT_RATE) -> float:
@@ -221,24 +230,30 @@ def load_demand_for_year(year: int, demand_file: str, data_dir: str) -> pd.DataF
 
 
 def load_power_plants(data_dir: str) -> pd.DataFrame:
-    plants = pd.read_csv(os.path.join(data_dir, "calliope-data/data/uzb_power_plants.csv"), sep=";")
-    plants = plants[["name", "capacity_mw", "primary_fuel"]].copy()
-    plants["bus"] = plants["name"].map(PLANT_BUS_MAP)
-    plants["carrier"] = plants["primary_fuel"].str.strip()
+    """Full fleet (existing + planned) from data/power_plants.xlsx.
 
-    # --- Improvement 1: Plant bus mapping guardrail ---
-    unmapped = plants[plants["bus"].isna()]
-    if len(unmapped) > 0:
-        total_mw = unmapped["capacity_mw"].sum()
-        print(f"  ⚠ Dropping {len(unmapped)} plants with unknown bus mapping ({total_mw:.0f} MW total):",
-              file=sys.stderr)
-        for _, row in unmapped.iterrows():
-            print(f"    - {row['name']} ({row['carrier']}, {row['capacity_mw']:.0f} MW)", file=sys.stderr)
-        plants = plants.dropna(subset=["bus"])
-
-    plants["marginal_cost"] = plants["carrier"].map(MARGINAL_COSTS).fillna(30.0)
-    plants["efficiency"] = plants["carrier"].map(EFFICIENCY).fillna(0.40)
-    return plants
+    Returns columns: name, bus (lowercase zone), carrier (Gas/Coal/Hydro/Solar/Wind/BESS),
+    capacity_mw, build_year, marginal_cost, efficiency. build_year <= EXISTING_BUILD_YEAR_MAX
+    is the existing/current fleet; later years are the government-plan pipeline.
+    fuel_type 'Gas/Coal' (Angren / Novo-Angren) maps to the coal carrier.
+    """
+    df = pd.read_excel(os.path.join(data_dir, "power_plants.xlsx"), sheet_name=0)
+    df = df.rename(columns=lambda c: str(c).strip())
+    df["bus"] = df["bus"].astype(str).str.strip().str.lower()       # Central->central, SouthWest->southwest
+    df["carrier"] = df["fuel_type"].astype(str).str.strip().map(FUEL_TO_CARRIER)
+    df = df.dropna(subset=["carrier"])
+    df = df[df["bus"].isin(DOMESTIC_BUSES)].copy()
+    df["capacity_mw"] = pd.to_numeric(df["capacity"], errors="coerce").fillna(0.0)
+    df["build_year"] = pd.to_numeric(df["build_year"], errors="coerce").fillna(2020).astype(int)
+    df["marginal_cost"] = df["carrier"].map(MARGINAL_COSTS).fillna(30.0)
+    df["efficiency"] = df["carrier"].map(EFFICIENCY).fillna(0.40)
+    # PyPSA requires unique component names — disambiguate any duplicates.
+    seen, names = {}, []
+    for nm in df["name"].astype(str):
+        seen[nm] = seen.get(nm, 0) + 1
+        names.append(nm if seen[nm] == 1 else f"{nm} #{seen[nm]}")
+    df["name"] = names
+    return df.reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------
@@ -353,6 +368,7 @@ def build_and_run(
     demand_file: str,
     project_dir: str = DEFAULT_PROJECT_DIR,
     carbon_price: float = 0.0,
+    build_only: bool = False,
 ) -> tuple[pypsa.Network, dict]:
     data_dir = os.path.join(project_dir, "data")
     results_dir = os.path.join(project_dir, "results", "policy_aligned")
@@ -411,23 +427,36 @@ def build_and_run(
     wind_profiles = {b: load_profile_from_ninja("wind", b, snapshots, data_dir) for b in DOMESTIC_BUSES}
 
     plants = load_power_plants(data_dir)
-    # Apply carbon-price adder to existing fossil plants (per-plant efficiency).
+    # Apply carbon-price adder to fossil plants (per-carrier efficiency).
     if carbon_price > 0:
         plants["marginal_cost"] = plants.apply(
             lambda r: r["marginal_cost"] + carbon_adder(r["carrier"], r["efficiency"], carbon_price),
             axis=1,
         )
-    for _, p in plants.iterrows():
-        carrier = p["carrier"].lower()
-        if carrier == "hydro":
-            p_max_pu = hydro_profile
-        elif carrier == "solar":
-            p_max_pu = solar_profiles.get(p["bus"], pd.Series(0.0, index=snapshots))
-        else:
-            p_max_pu = AVAILABILITY.get(p["carrier"], 0.95)
-        n.add("Generator", p["name"], bus=p["bus"], carrier=carrier, p_nom=float(p["capacity_mw"]),
+
+    def _add_fleet_plant(p, name=None):
+        """Add one fleet row as a fixed Generator (or StorageUnit for BESS)."""
+        carrier = p["carrier"]                        # Gas/Coal/Hydro/Solar/Wind/BESS
+        bus, cap, nm = p["bus"], float(p["capacity_mw"]), (name or p["name"])
+        if carrier == "BESS":
+            n.add("StorageUnit", nm, bus=bus, carrier="BESS", p_nom=cap, max_hours=4.0,
+                  efficiency_store=0.95, efficiency_dispatch=0.95, cyclic_state_of_charge=True)
+            return
+        if carrier == "Hydro":
+            pmax = hydro_profile
+        elif carrier == "Solar":
+            pmax = solar_profiles.get(bus, pd.Series(0.0, index=snapshots))
+        elif carrier == "Wind":
+            pmax = wind_profiles.get(bus, pd.Series(0.0, index=snapshots))
+        else:                                         # Gas / Coal
+            pmax = AVAILABILITY.get(carrier, 0.95)
+        n.add("Generator", nm, bus=bus, carrier=carrier.lower(), p_nom=cap,
               marginal_cost=float(p["marginal_cost"]), efficiency=float(p["efficiency"]),
-              p_max_pu=p_max_pu, p_min_pu=MIN_STABLE_GEN.get(p["carrier"], 0.0))
+              p_max_pu=pmax, p_min_pu=MIN_STABLE_GEN.get(carrier, 0.0))
+
+    # Existing fleet (build_year <= EXISTING_BUILD_YEAR_MAX) — present in BOTH modes.
+    for _, p in plants[plants["build_year"] <= EXISTING_BUILD_YEAR_MAX].iterrows():
+        _add_fleet_plant(p)
 
     demand = load_demand_for_year(year, demand_file, data_dir)
     for b in DOMESTIC_BUSES:
@@ -443,52 +472,33 @@ def build_and_run(
     for b in DOMESTIC_BUSES:
         n.add("Generator", f"loadshed_{b}", bus=b, carrier="AC", p_nom=5000, marginal_cost=1000, p_max_pu=1.0)
 
+    # Government plan: the PLANNED (build > 2025) solar/wind/hydro/BESS are BUILT (fixed) at the
+    # MoE-specified locations from power_plants.xlsx. New gas is NOT fixed — it is a free
+    # extendable candidate (below), so the optimizer sizes/sites gas to demand.
     if capacity_mode == "gov_plan":
-        # Gov plan locations + MW act as a FLOOR; optimizer can build more on top.
-        # Hydro stays fixed (site-specific, no generic CAPEX).
-        for b in DOMESTIC_BUSES:
-            add = GOV_PLAN_ADDITIONS[b]
-            if add["Solar"] > 0:
-                n.add("Generator", f"gov_solar_{b}", bus=b, carrier="solar",
-                      p_nom_extendable=True, p_nom_min=add["Solar"],
-                      capital_cost=ANNUALIZED["Solar"], marginal_cost=0.0, p_max_pu=solar_profiles[b])
-            if add["Wind"] > 0:
-                n.add("Generator", f"gov_wind_{b}", bus=b, carrier="wind",
-                      p_nom_extendable=True, p_nom_min=add["Wind"],
-                      capital_cost=ANNUALIZED["Wind"], marginal_cost=0.0, p_max_pu=wind_profiles[b])
-            if add["Gas"] > 0:
-                n.add("Generator", f"gov_gas_{b}", bus=b, carrier="gas",
-                      p_nom_extendable=True, p_nom_min=add["Gas"],
-                      capital_cost=ANNUALIZED["Gas"], marginal_cost=gas_mc_new,
-                      efficiency=0.55, p_max_pu=0.95)
-            if add["Hydro"] > 0:
-                n.add("Generator", f"gov_hydro_{b}", bus=b, carrier="hydro", p_nom=add["Hydro"],
-                      marginal_cost=MARGINAL_COSTS["Hydro"], p_max_pu=hydro_profile)
-            if add["BESS"] > 0:
-                n.add("StorageUnit", f"gov_bess_{b}", bus=b, carrier="BESS",
-                      p_nom_extendable=True, p_nom_min=add["BESS"],
-                      capital_cost=ANNUALIZED["BESS"], max_hours=4.0,
-                      efficiency_store=0.95, efficiency_dispatch=0.95, cyclic_state_of_charge=True)
-            if add["PumpedHydro"] > 0:
-                n.add("StorageUnit", f"gov_ph_{b}", bus=b, carrier="PumpedHydro",
-                      p_nom_extendable=True, p_nom_min=add["PumpedHydro"],
-                      capital_cost=ANNUALIZED["PumpedHydro"], max_hours=8.0,
-                      efficiency_store=0.80, efficiency_dispatch=0.85, cyclic_state_of_charge=True)
-    else:
-        # cost_optimal mode — Framing 2: solar + wind candidates in ALL 5 zones,
-        # optimizer picks where to build based on resource profile + economics.
+        for _, p in plants[plants["build_year"] > EXISTING_BUILD_YEAR_MAX].iterrows():
+            if p["carrier"] == "Gas":
+                continue
+            _add_fleet_plant(p, name="plan_" + p["name"])
+
+    # New gas: free extendable candidate in ALL zones, BOTH modes (optimizer builds to demand).
+    for b in DOMESTIC_BUSES:
+        n.add("Generator", f"candidate_gas_{b}", bus=b, carrier="gas", p_nom_extendable=True,
+              capital_cost=ANNUALIZED["Gas"], marginal_cost=gas_mc_new, efficiency=0.55, p_max_pu=0.95)
+
+    # Cost-optimal: solar + wind + BESS candidates in all zones (the gov-plan fixes these instead).
+    if capacity_mode == "cost_optimal":
         for b in DOMESTIC_BUSES:
             n.add("Generator", f"candidate_solar_{b}", bus=b, carrier="solar", p_nom_extendable=True,
                   capital_cost=ANNUALIZED["Solar"], marginal_cost=0.0, p_max_pu=solar_profiles[b])
             n.add("Generator", f"candidate_wind_{b}", bus=b, carrier="wind", p_nom_extendable=True,
                   capital_cost=ANNUALIZED["Wind"], marginal_cost=0.0, p_max_pu=wind_profiles[b])
-            n.add("Generator", f"candidate_gas_{b}", bus=b, carrier="gas", p_nom_extendable=True,
-                  capital_cost=ANNUALIZED["Gas"], marginal_cost=gas_mc_new, efficiency=0.55, p_max_pu=0.95)
             n.add("StorageUnit", f"candidate_bess_{b}", bus=b, carrier="BESS", p_nom_extendable=True,
-                  capital_cost=ANNUALIZED["BESS"], max_hours=4.0, efficiency_store=0.95, efficiency_dispatch=0.95,
-                  cyclic_state_of_charge=True)
-            # PumpedHydro candidate dropped (site-specific; was inflating LP size in cost_optimal).
-            # Gov-plan retains PH as fixed/floor allocation per GOV_PLAN_ADDITIONS.
+                  capital_cost=ANNUALIZED["BESS"], max_hours=4.0, efficiency_store=0.95,
+                  efficiency_dispatch=0.95, cyclic_state_of_charge=True)
+
+    if build_only:
+        return n, {"build_only": True}
 
     m = n.optimize.create_model()
     if trade_enabled:

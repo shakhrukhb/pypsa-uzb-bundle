@@ -159,7 +159,9 @@ def plot_cost_vs_carbon(df: pd.DataFrame):
     ax.set_ylabel("Annual system cost (USD billion / yr)")
     ax.set_title("Annual System Cost vs Carbon Price — Uzbekistan 2030 (135 TWh)")
     ax.set_xticks(CARBON_PRICES)
-    ax.legend(loc="upper left", framealpha=0.95)
+    # Lower-right is the empty band (both cost curves sit at $3.7-6.1B, above the
+    # 0-3.5B region) — keeps the legend off the gov-plan line.
+    ax.legend(loc="lower right", framealpha=0.95)
     ax.set_ylim(bottom=0)
 
     # Annotate cost-opt + gov values
